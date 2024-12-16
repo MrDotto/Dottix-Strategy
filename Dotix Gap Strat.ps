@@ -259,6 +259,14 @@ else
 
 sellCondition =  barstate.isconfirmed and WaitingForSell and (((hour >= 15 and minute >= 58) or (close[1] > (showDv2 ? myvwap + devUp2 * dev : na) and crsi > ub - 0.8) or close[1] < (showDv3 ? myvwap - devDn3 * dev : na) or (high > ema20 + 0.3 and close < ema20) or redMACDBarCount >= 5 or ((redMACDBar or bearishEngulfingCandle or bearishDownTrend) and (na(entryPrice) or close > entryPrice))) and CandlesSinceBuy > 3) or bearMarket
 
+// ALERT to allow my broker to buy automatically 
+
+if buyCondition
+    alert(str.tostring(syminfo.ticker) + "," + str.tostring(close) + "," + str.tostring(15) + ",B", alert.freq_once_per_bar_close)
+
+if sellCondition
+    alert(str.tostring(syminfo.ticker) + "," + str.tostring(close) + "," + str.tostring(SharesOwned / 2) + ",S", alert.freq_once_per_bar_close)
+
 if buyCondition
     WaitingForSell := true
     entryPrice := close
@@ -278,7 +286,6 @@ if sellCondition
     GapCandles := 0
     strategy.order("Sell", strategy.short, qty=SharesOwned)
     SharesOwned := 0
-
 // Candles #########################################################################################################
 
 candleBadWick = ((bearishDownTrend or bearishEngulfingCandle) ? #fb5d5d : bartrendcolor)

@@ -7,6 +7,8 @@ strategy("Dotix Gap Strat", overlay=true, close_entries_rule="ANY", dynamic_requ
 
 showElements = timeframe.period == "1" or timeframe.period == "5"
 
+inRTH = ((hour > 9 or (hour == 9 and minute >= 30)) and (hour < 16))
+
 // Check market sentiment ##########################################################################################
 
 var int candleId = na
@@ -43,7 +45,7 @@ var bool bearMarket = false
 import theEccentricTrader/PubLibSwing/1 as sw
 import theEccentricTrader/PubLibTrend/1 as tr
 
-bearMarket := (sw.sh() and tr.dt_4p() and high >= high[1] and barstate.isconfirmed)
+bearMarket := (sw.sh() and tr.dt_5p() and high >= high[1] and barstate.isconfirmed)
 
 // VWAP ############################################################################################################
 
@@ -56,53 +58,51 @@ devDn2 = input.float(2.01, title="Stdev below (2)")
 devUp3 = input.float(2.51, title="Stdev above (3)")
 devDn3 = input.float(2.51, title="Stdev below (3)")
 
-// Inputs for visibility
-showDv2 = input(true, title="Show second group of bands?")
-showDv3 = input(true, title="Show third group of bands?")
-
 // VWAP Calculation
-is_new_session = ta.change(time('D'))
+bool is_new_session = ta.change(time('D')) != 0
 
 var float vwapsum = na
 var float volumesum = na
 var float v2sum = na
+var float myvwap = na
+var float dev = na
 
-if (is_new_session)
+if (minute == 30 and hour == 9)
     vwapsum := hl2 * volume
     volumesum := volume
     v2sum := volume * hl2 * hl2
-else
+else 
     vwapsum += hl2 * volume
     volumesum += volume
     v2sum += volume * hl2 * hl2
 
-myvwap = vwapsum / volumesum
-dev = math.sqrt(math.max(v2sum / volumesum - myvwap * myvwap, 0))
+myvwap := vwapsum / volumesum
+dev := math.sqrt(math.max(v2sum / volumesum - myvwap * myvwap, 0))
 
 // Plot VWAP and standard deviation bands
-U1 = plot(showElements ? myvwap + devUp1 * dev : na, style=plot.style_circles, title="VWAP Upper", color=#1e212e, transp=0)
-A = plot(showElements ? myvwap : na, style=plot.style_circles, title="VWAP", color=#2b303c)
-D1 = plot(showElements ? myvwap - devDn1 * dev : na, style=plot.style_circles, title="VWAP Lower", color=#1e212e, transp=0)
+U1 = plot(showElements and inRTH ? myvwap + devUp1 * dev : na, style=plot.style_circles, title="VWAP Upper", color=#1e212e, transp=0)
+A = plot(showElements and inRTH ? myvwap : na, style=plot.style_stepline, title="VWAP", color=#00000000)
+D1 = plot(showElements and inRTH ? myvwap - devDn1 * dev : na, style=plot.style_circles, title="VWAP Lower", color=#1e212e, transp=0)
 
-U3 = plot(showElements and showDv3 ? myvwap + devUp3 * dev : na, color=#814851, title="VWAP Upper (3)")
-U2 = plot(showElements and showDv2 ? myvwap + devUp2 * dev : na, color=#71303c, title="VWAP Upper (2)")
+U3 = plot(showElements and inRTH ? myvwap + devUp3 * dev : na, color=#814851, title="VWAP Upper (3)")
+U2 = plot(showElements and inRTH ? myvwap + devUp2 * dev : na, color=#71303c, title="VWAP Upper (2)")
 
-D2 = plot(showElements and showDv2 ? myvwap - devDn2 * dev : na, color=#0b3847, title="VWAP Lower (2)")
-D3 = plot(showElements and showDv3 ? myvwap - devDn3 * dev : na, color=#0c4b5a, title="VWAP Lower (3)")
+D2 = plot(showElements and inRTH ? myvwap - devDn2 * dev : na, color=#0b3847, title="VWAP Lower (2)")
+D3 = plot(showElements and inRTH ? myvwap - devDn3 * dev : na, color=#0c4b5a, title="VWAP Lower (3)")
 
 // Plot previous VWAP
 prevwap = myvwap[1]
-plot(showElements ? prevwap : na, style=plot.style_stepline, color=close > prevwap ? #edf2e890 : #5d606b90)
+plot(showElements and inRTH ? prevwap : na, style=plot.style_stepline, color=close > prevwap ? #edf2e890 : #5d606b90)
 
 // Fill between bands
-fill(U1, U2, color=showElements ? color.rgb(128, 25, 34, 95) : na, title="Over Bought Fill 1")
-fill(D1, D2, color=showElements ? color.rgb(0, 96, 100, 95) : na, title="Over Sold Fill 1")
+fill(U1, U2, color=showElements and inRTH ? color.rgb(128, 25, 34, 95) : na, title="Over Bought Fill 1")
+fill(D1, D2, color=showElements and inRTH ? color.rgb(0, 96, 100, 95) : na, title="Over Sold Fill 1")
 
-fill(U2, U3, color=showElements ? color.rgb(247, 82, 95, 97) : na, title="Over Bought Fill 2")
-fill(D2, D3, color=showElements ? color.rgb(0, 151, 167, 97) : na, title="Over Sold Fill 2")
+fill(U2, U3, color=showElements and inRTH ? color.rgb(247, 82, 95, 97) : na, title="Over Bought Fill 2")
+fill(D2, D3, color=showElements and inRTH ? color.rgb(0, 151, 167, 97) : na, title="Over Sold Fill 2")
 
-fill(A, U1, color=showElements ? color.rgb(120, 123, 134, 98) : na, title="Middle Fill Up")
-fill(A, D1, color=showElements ? color.rgb(120, 123, 134, 98) : na, title="Middle Fill Down")
+fill(A, U1, color=showElements and inRTH ? color.rgb(120, 123, 134, 98) : na, title="Middle Fill Up")
+fill(A, D1, color=showElements and inRTH ? color.rgb(120, 123, 134, 98) : na, title="Middle Fill Down")
 
 // Gap logic ######################################################################################################
 
@@ -111,14 +111,16 @@ float gapThreshold = 8.5
 var bool GapFormed = false
 var int GapCandles = 0
 var int CandlesSinceBuy = 0
-var float priceBeforeGap = na
+var float priceBeforeGap = na 
 var bool GapGreaterThan10 = false
+var float lastDayClose = na
 
-gapPercentage = (open - close[1]) / close[1] * 100
-hasGap = gapPercentage > gapThreshold and gapPercentage < 60
+gapPercentage = (open - lastDayClose) / lastDayClose * 100
+hasGap = gapPercentage > gapThreshold and gapPercentage < 60 and inRTH
+
 GapGreaterThan10 := gapPercentage > 10
 if hasGap
-    priceBeforeGap := close[1]
+    priceBeforeGap := lastDayClose
     GapFormed := true
     GapCandles := 0
 
@@ -131,6 +133,10 @@ else
 if GapFormed
     GapCandles := GapCandles + 1
     
+
+if (inRTH)
+    lastDayClose := close
+
 // MACD candle logic ###############################################################################################
 
 var int consecutiveRedCount = 0
@@ -139,10 +145,21 @@ var int consecutiveBadMACDCount = 0
 int fastMAlen = 12
 int slowMAlen = 26
 
-MACD = ta.ema(close, fastMAlen) - ta.ema(close, slowMAlen)
-fastMA = ta.ema(close, fastMAlen)
-slowMA = ta.ema(close, slowMAlen)
-veryslowMA = ta.sma(close, 100)
+var float MACD = na
+if (inRTH)
+    MACD := ta.ema(close, fastMAlen) - ta.ema(close, slowMAlen)
+
+var float fastMA = na
+if (inRTH)
+    fastMA := ta.ema(close, fastMAlen)
+
+var float slowMA = na
+if (inRTH)
+    slowMA := ta.ema(close, slowMAlen)
+
+var float veryslowMA = na
+if (inRTH)
+    veryslowMA := ta.sma(close, 100)
 
 bartrendcolor = close > fastMA and close > slowMA and close > veryslowMA and ta.change(slowMA) > 0 ? (open < close ? #edf2e8 : #5d606b) : 
                close < fastMA and close < slowMA and close < veryslowMA and ta.change(slowMA) < 0 ? #ce5a6f : #dea79c
@@ -168,68 +185,113 @@ bullishEngulfing() =>
 
 // RSI ############################################################################################################
 
-src = close
-domcycle = input.int(20, minval=10, title="Dominant Cycle Length")
+src = close 
+domcycle = 20
 vibration = 8
 leveling = 10.0
 cyclicmemory = domcycle * 2
 
+var float[] crsiHistory = na
 var crsi = 0.0
+var float lmax = na
+var float lmin = na
+var float db = na
+var float ub = na
+var float crsiRange = na
 int cyclelen = domcycle / 2
 
 torque = 2.0 / (vibration + 1)
 phasingLag = math.floor((vibration - 1) / 2.0)
 
-up = ta.rma(math.max(ta.change(src), 0), length=cyclelen)
-down = ta.rma(-math.min(ta.change(src), 0), cyclelen)
-rsi = down == 0 ? 10 : up == 0 ? 0 : 10 - 10 / (1 + up / down)
-crsi := torque * (1 * rsi - rsi[phasingLag]) + (1 - torque) * nz(crsi[1])
+if bar_index == 0
+    crsiHistory := array.new_float(cyclicmemory, na)
 
-lmax = -999999.0
-lmin = 999999.0
-for i = 0 to cyclicmemory - 1
-    if nz(crsi[i], -999999.0) > lmax
-        lmax := nz(crsi[i])
-    if nz(crsi[i], 999999.0) < lmin
-        lmin := nz(crsi[i])
+if inRTH
+    up = ta.rma(math.max(ta.change(src), 0), length=cyclelen)
+    down = ta.rma(-math.min(ta.change(src), 0), cyclelen)
+    rsi = down == 0 ? 10 : up == 0 ? 0 : 10 - 10 / (1 + up / down)
+    crsi := torque * (1 * rsi - rsi[phasingLag]) + (1 - torque) * nz(crsi[1])
+    
+    // Save crsi to history
+    array.unshift(crsiHistory, crsi)
+    if array.size(crsiHistory) > cyclicmemory
+        array.pop(crsiHistory)
 
-mstep = (lmax - lmin) / 100
-aperc = leveling / 100
+    if na(lmax) or na(lmin)
+        lmax := nz(lmax[1], -999999.0)
+        lmin := nz(lmin[1], 999999.0)
 
-db = 0.0
-for steps = 0 to 100
-    testvalue = lmin + mstep * steps
-    below = 0
-    for m = 0 to cyclicmemory - 1
-        below += crsi[m] < testvalue ? 1 : 0
-    ratio = below / cyclicmemory
-    if ratio >= aperc
-        db := testvalue
-        break
+    // Smooth the lmax and lmin recalculations
+    for i = 0 to cyclicmemory - 1
+        lmax := math.max(lmax, array.get(crsiHistory, i))
+        lmin := math.min(lmin, array.get(crsiHistory, i))
 
-ub = 0.0
-for steps = 0 to 100
-    testvalue = lmax - mstep * steps
-    above = 0
-    for m = 0 to cyclicmemory - 1
-        above += crsi[m] >= testvalue ? 1 : 0
-    ratio = above / cyclicmemory
-    if ratio >= aperc
-        ub := testvalue
-        break
+    mstep = (lmax - lmin) / 100
+    aperc = leveling / 100
 
-crsiRange = lmax - lmin
+    db := nz(db[1])  // Preserve previous db
+    ub := nz(ub[1])  // Preserve previous ub
+
+    // Recalculate db
+    for steps = 0 to 100
+        testvalue = lmin + mstep * steps
+        below = 0
+        for m = 0 to cyclicmemory - 1
+            below += array.get(crsiHistory, m) < testvalue ? 1 : 0
+        ratio = below / cyclicmemory
+        if ratio >= aperc
+            db := testvalue
+            break
+
+    // Recalculate ub
+    for steps = 0 to 100
+        testvalue = lmax - mstep * steps
+        above = 0
+        for m = 0 to cyclicmemory - 1
+            above += array.get(crsiHistory, m) >= testvalue ? 1 : 0
+        ratio = above / cyclicmemory
+        if ratio >= aperc
+            ub := testvalue
+            break
+
+    crsiRange := lmax - lmin
+else
+    crsi := nz(crsi[1])
+    lmax := nz(lmax[1])
+    lmin := nz(lmin[1])
+    db := nz(db[1])
+    ub := nz(ub[1])
+    crsiRange := nz(crsiRange[1])
 
 lowband = plot(showElements ? ((myvwap + myvwap) / 2) + db : na, "LowBand", color=color.rgb(77, 68, 84, 34), offset=1)
 highband = plot(showElements ? ((myvwap + myvwap) / 2) + ub : na, "HighBand", color=color.rgb(77, 68, 84, 34), offset=0)
 
 plot(showElements ? ((myvwap + myvwap) / 2) + crsi : na, "CRSI", color=color.rgb(79, 53, 101, 34), offset=0)
 
-// EMA #############################################################################################################
 
-ema20 = ta.ema(close, 80)
+// 80 EMA #############################################################################################################
 
-plot(ema20, title="EMA 80", color=color.black)
+var float ema80 = na
+
+if (showElements and inRTH)
+    ema80 := ta.ema(close, 80)
+
+plot(ema80, title="EMA 80", color=color.black, linewidth=2)
+
+// 200 BB  #########################################################################################################
+
+lenBB = 200
+mult = 2.0
+
+getAllSessionClose() =>
+    allSessionClose = request.security(syminfo.tickerid, "5", close, lookahead=barmerge.lookahead_on)
+    allSessionClose
+
+[bbMiddle, bbUpper, bbLower] = ta.bb(getAllSessionClose(), lenBB, mult)
+
+plot(showElements ? bbUpper : na, color=#354662, title="BB Upper")
+plot(showElements ? bbMiddle : na, color=#624735, title="BB Middle")
+plot(showElements ? bbLower : na, color=#35624b, title="BB Lower")
 
 // BUY / SELL logic ################################################################################################
 
@@ -243,21 +305,27 @@ else
 int delayBeforeSell = 10
 var float entryPrice = na
 var float SharesOwned = 0
+var priceUnderBB = false
 
-// or bullCandles >= 4
-buyCondition = ((close > ema20 and low < ema20) or bullCandles >= 6) and (close < (showDv2 ? myvwap + devUp2 * dev : na)) and crsi < ub - 0.3 and volume >= 2000 and GapFormed and not WaitingForSell and GapCandles < 200 and priceBeforeGap < close and consecutiveBadMACDCount < 10
-drawDownBuy = WaitingForSell and priceBeforeGap < close and bullishEngulfing() and GapCandles > 1 and SharesOwned > 0 and close < entryPrice and priceBeforeGap < close
+if high < bbLower and GapCandles > 6
+    priceUnderBB := true
+
+buyCondition = ((priceUnderBB and low > bbLower and close > low and volume > 5000 and GapCandles > 12) or (((close > ema80 and low < ema80) or bullCandles >= 6) and (close < (myvwap + devUp2 * dev)) and crsi < ub - 0.3)) and volume >= 2000 and GapFormed and not WaitingForSell and GapCandles < 200 and priceBeforeGap < close and consecutiveBadMACDCount < 10 and barstate.isconfirmed
+drawDownBuy = WaitingForSell and priceBeforeGap < close and ((priceUnderBB and low > bbLower and close > low and volume > 5000 and GapCandles > 12) or bullishEngulfing()) and GapCandles > 1 and SharesOwned > 0 and close < entryPrice and priceBeforeGap < close
 
 redMACDBar = WaitingForSell and bartrendcolor == #ce5a6f and volume > 4000
 bearishDownTrend = WaitingForSell and (GapCandles > delayBeforeSell and consecutiveRedCount >= 11 and close < open)
 bearishEngulfingCandle = WaitingForSell and close < open and open > close[1] and close < open[1] and open[1] < close[1]
+
+if low > bbLower
+    priceUnderBB := false
 
 if (bearishDownTrend or bearishEngulfingCandle) 
     redMACDBarCount += 1
 else
     redMACDBarCount := 0
 
-sellCondition =  barstate.isconfirmed and WaitingForSell and (((hour >= 15 and minute >= 50) or (close[1] > (showDv2 ? myvwap + devUp2 * dev : na) and crsi > ub - 0.8) or close[1] < (showDv3 ? myvwap - devDn3 * dev : na) or (high > ema20 + 0.3 and close < ema20) or redMACDBarCount >= 5 or ((redMACDBar or bearishEngulfingCandle or bearishDownTrend) and (na(entryPrice) or close > entryPrice))) and CandlesSinceBuy > 3) or bearMarket
+sellCondition = barstate.isconfirmed and WaitingForSell and (((hour >= 15 and minute >= 50) or (close[1] > (myvwap + devUp2 * dev) and crsi > ub - 0.8) or close[1] < (myvwap - devDn3 * dev) or (high > ema80 + 0.3 and close < ema80) or redMACDBarCount >= 5 or ((redMACDBar or bearishEngulfingCandle or bearishDownTrend) and (na(entryPrice) or close > entryPrice))) and CandlesSinceBuy > 3) or bearMarket
 
 // ALERT to allow my broker to buy automatically 
 
@@ -270,7 +338,6 @@ if sellCondition
 if buyCondition
     WaitingForSell := true
     entryPrice := close
-    GapCandles := 0
 
 // if drawDownBuy
 //     strategy.order("Buy", strategy.long, qty=30)
@@ -301,5 +368,5 @@ plotshape(series=sellCondition and not bearMarket, title="Sell Signal", location
 plotshape(series=hasGap, title="Gap of 8.5% or more", location=location.belowbar, color=color.teal, style=shape.diamond, offset=0)
 plotshape(series=hasGap and GapGreaterThan10, title="Gap of 10% or more", location=location.belowbar, color=#ffd942, style=shape.diamond, offset=0)
 
-if (sw.sh() and tr.dt_4p() and high >= high[1] and barstate.isconfirmed and showElements)
+if (bearMarket and showElements)
     label.new(x=bar_index, y=high, text='☠️', color=color.rgb(0, 0, 0, 100), textcolor=color.red, style=label.style_label_down, size=size.large)

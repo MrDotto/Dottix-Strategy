@@ -306,26 +306,31 @@ int delayBeforeSell = 10
 var float entryPrice = na
 var float SharesOwned = 0
 var priceUnderBB = false
+var priceLastUnderBB = 0
 
-if high < bbLower and GapCandles > 6
+if high < bbLower and GapCandles > 12
     priceUnderBB := true
+    priceLastUnderBB += 0
 
-buyCondition = ((priceUnderBB and low > bbLower and close > low and volume > 5000 and GapCandles > 12) or (((close > ema80 and low < ema80) or bullCandles >= 6) and (close < (myvwap + devUp2 * dev)) and crsi < ub - 0.3)) and volume >= 2000 and GapFormed and not WaitingForSell and GapCandles < 200 and priceBeforeGap < close and consecutiveBadMACDCount < 10 and barstate.isconfirmed
+if priceLastUnderBB > 6 
+    priceUnderBB := false
+
+buyCondition = (priceUnderBB and low > bbLower and volume > 4000 and close > open) or ((((close > ema80 and low < ema80) or bullCandles >= 6) and (close < (myvwap + devUp2 * dev)) and crsi < ub - 0.3)) and volume >= 2000 and GapFormed and not WaitingForSell and GapCandles < 200 and priceBeforeGap < close and consecutiveBadMACDCount < 10 and barstate.isconfirmed
 drawDownBuy = WaitingForSell and priceBeforeGap < close and ((priceUnderBB and low > bbLower and close > low and volume > 5000 and GapCandles > 12) or bullishEngulfing()) and GapCandles > 1 and SharesOwned > 0 and close < entryPrice and priceBeforeGap < close
 
 redMACDBar = WaitingForSell and bartrendcolor == #ce5a6f and volume > 4000
 bearishDownTrend = WaitingForSell and (GapCandles > delayBeforeSell and consecutiveRedCount >= 11 and close < open)
 bearishEngulfingCandle = WaitingForSell and close < open and open > close[1] and close < open[1] and open[1] < close[1]
 
-if low > bbLower
-    priceUnderBB := false
+// if low > bbLower
+//     priceUnderBB := false
 
 if (bearishDownTrend or bearishEngulfingCandle) 
     redMACDBarCount += 1
 else
     redMACDBarCount := 0
 
-sellCondition = barstate.isconfirmed and WaitingForSell and (((hour >= 15 and minute >= 50) or (close[1] > (myvwap + devUp2 * dev) and crsi > ub - 0.8) or close[1] < (myvwap - devDn3 * dev) or (high > ema80 + 0.3 and close < ema80) or redMACDBarCount >= 5 or ((redMACDBar or bearishEngulfingCandle or bearishDownTrend) and (na(entryPrice) or close > entryPrice))) and CandlesSinceBuy > 3) or bearMarket or (bearishDownTrend or bearishEngulfingCandle)
+sellCondition = barstate.isconfirmed and WaitingForSell and (((hour >= 15 and minute >= 50) or (close[1] > (myvwap + devUp2 * dev) and crsi > ub - 0.8) or close[1] < (myvwap - devDn3 * dev) or (high > ema80 + 0.3 and close < ema80) or redMACDBarCount >= 5 or ((redMACDBar or (bearishEngulfingCandle and bearishDownTrend)) and (na(entryPrice) or close > entryPrice))) and CandlesSinceBuy > 3) or bearMarket
 
 // ALERT to allow my broker to buy automatically 
 
@@ -338,6 +343,8 @@ if sellCondition
 if buyCondition
     WaitingForSell := true
     entryPrice := close
+    priceUnderBB := false
+    priceLastUnderBB := 0
 
 // if drawDownBuy
 //     strategy.order("Buy", strategy.long, qty=30)

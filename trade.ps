@@ -325,7 +325,7 @@ if (bearishDownTrend or bearishEngulfingCandle)
 else
     redMACDBarCount := 0
 
-sellCondition = barstate.isconfirmed and WaitingForSell and (((hour >= 15 and minute >= 50) or (close[1] > (myvwap + devUp2 * dev) and crsi > ub - 0.8) or close[1] < (myvwap - devDn3 * dev) or (high > ema80 + 0.3 and close < ema80) or redMACDBarCount >= 5 or ((redMACDBar or bearishEngulfingCandle or bearishDownTrend) and (na(entryPrice) or close > entryPrice))) and CandlesSinceBuy > 3) or bearMarket
+sellCondition = barstate.isconfirmed and WaitingForSell and (((hour >= 15 and minute >= 50) or (close[1] > (myvwap + devUp2 * dev) and crsi > ub - 0.8) or close[1] < (myvwap - devDn3 * dev) or (high > ema80 + 0.3 and close < ema80) or redMACDBarCount >= 5 or ((redMACDBar or bearishEngulfingCandle or bearishDownTrend) and (na(entryPrice) or close > entryPrice))) and CandlesSinceBuy > 3) or bearMarket or (bearishDownTrend or bearishEngulfingCandle)
 
 // ALERT to allow my broker to buy automatically 
 

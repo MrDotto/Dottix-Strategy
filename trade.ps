@@ -45,7 +45,7 @@ var bool bearMarket = false
 import theEccentricTrader/PubLibSwing/1 as sw
 import theEccentricTrader/PubLibTrend/1 as tr
 
-bearMarket := (sw.sh() and tr.dt_5p() and high >= high[1] and barstate.isconfirmed)
+bearMarket := (sw.sh() and tr.dt_4p() and high >= high[1] and barstate.isconfirmed)
 
 // VWAP ############################################################################################################
 
@@ -116,7 +116,7 @@ var bool GapGreaterThan10 = false
 var float lastDayClose = na
 
 gapPercentage = (open - lastDayClose) / lastDayClose * 100
-hasGap = gapPercentage > gapThreshold and gapPercentage < 60 and inRTH
+hasGap = gapPercentage > gapThreshold and inRTH
 
 GapGreaterThan10 := gapPercentage > 10
 if hasGap
@@ -305,18 +305,22 @@ else
 int delayBeforeSell = 10
 var float entryPrice = na
 var float SharesOwned = 0
-var priceUnderBB = false
-var priceLastUnderBB = 0
+var bool priceUnderBB = false
+var int priceLastUnderBB = 0
 
-if high < bbLower and GapCandles > 12
+if high <= bbLower
+    priceLastUnderBB := 0
     priceUnderBB := true
-    priceLastUnderBB += 0
+else if priceUnderBB
+    priceLastUnderBB += 1 
 
-if priceLastUnderBB > 6 
+
+if priceLastUnderBB > 13 
+    priceLastUnderBB := 0
     priceUnderBB := false
 
-buyCondition = (priceUnderBB and low > bbLower and volume > 4000 and close > open) or ((((close > ema80 and low < ema80) or bullCandles >= 6) and (close < (myvwap + devUp2 * dev)) and crsi < ub - 0.3)) and volume >= 2000 and GapFormed and not WaitingForSell and GapCandles < 200 and priceBeforeGap < close and consecutiveBadMACDCount < 10 and barstate.isconfirmed
-drawDownBuy = WaitingForSell and priceBeforeGap < close and ((priceUnderBB and low > bbLower and close > low and volume > 5000 and GapCandles > 12) or bullishEngulfing()) and GapCandles > 1 and SharesOwned > 0 and close < entryPrice and priceBeforeGap < close
+buyCondition = ((priceUnderBB and low > bbLower and volume > 4000) or ((((close > ema80 and low < ema80) or bullCandles >= 6) and (close < (myvwap + devUp2 * dev)) and crsi < ub - 0.3))) and volume >= 2000 and GapFormed and not WaitingForSell and GapCandles < 145 and priceBeforeGap < close and inRTH and consecutiveBadMACDCount < 10 and barstate.isconfirmed
+drawDownBuy = WaitingForSell and priceBeforeGap < close and ((priceUnderBB and low > bbLower and volume > 4000) or bullishEngulfing()) and GapCandles > 1 and SharesOwned > 0 and close < entryPrice and priceBeforeGap < close
 
 redMACDBar = WaitingForSell and bartrendcolor == #ce5a6f and volume > 4000
 bearishDownTrend = WaitingForSell and (GapCandles > delayBeforeSell and consecutiveRedCount >= 11 and close < open)
@@ -330,29 +334,24 @@ if (bearishDownTrend or bearishEngulfingCandle)
 else
     redMACDBarCount := 0
 
-sellCondition = barstate.isconfirmed and WaitingForSell and (((hour >= 15 and minute >= 50) or (close[1] > (myvwap + devUp2 * dev) and crsi > ub - 0.8) or close[1] < (myvwap - devDn3 * dev) or (high > ema80 + 0.3 and close < ema80) or redMACDBarCount >= 5 or ((redMACDBar or (bearishEngulfingCandle and bearishDownTrend)) and (na(entryPrice) or close > entryPrice))) and CandlesSinceBuy > 3) or bearMarket
+sellCondition = (barstate.isconfirmed and GapFormed and WaitingForSell and (((hour >= 15 and minute >= 50) or (close[1] > (myvwap + devUp2 * dev) and crsi > ub - 1) or (close[1] < (myvwap - devDn3 * dev)) or (((high - math.max(open, close)) / (high - low) * 100 >= 30) and (high > bbUpper) and (close < bbUpper)) or (((high - math.max(open, close)) / (high - low) * 100 >= 60) and (high > myvwap) and (close < myvwap)) or (redMACDBar and bearishEngulfingCandle and bearishDownTrend) and (na(entryPrice) or (close > entryPrice))) and CandlesSinceBuy > 3 ) or bearMarket)
+
+// if drawDownBuy
+//     priceUnderBB := false
+//     priceLastUnderBB := 0
+//     strategy.order("Buy", strategy.long, qty=30)
+//     SharesOwned += 30
 
 // ALERT to allow my broker to buy automatically 
-
-if buyCondition
-    alert(str.tostring(syminfo.ticker) + "," + str.tostring(close) + ",B", alert.freq_once_per_bar_close)
-
-if sellCondition
-    alert(str.tostring(syminfo.ticker) + "," + str.tostring(close) + ",S", alert.freq_once_per_bar_close)
 
 if buyCondition
     WaitingForSell := true
     entryPrice := close
     priceUnderBB := false
     priceLastUnderBB := 0
-
-// if drawDownBuy
-//     strategy.order("Buy", strategy.long, qty=30)
-//     SharesOwned += 30
-
-if buyCondition
     strategy.entry("Buy", strategy.long, qty=30)
     SharesOwned += 30
+    alert(str.tostring(syminfo.ticker) + "," + str.tostring(close) + ",B", alert.freq_once_per_bar_close)
 
 if sellCondition
     WaitingForSell := false
@@ -360,6 +359,7 @@ if sellCondition
     GapCandles := 0
     strategy.order("Sell", strategy.short, qty=SharesOwned)
     SharesOwned := 0
+    alert(str.tostring(syminfo.ticker) + "," + str.tostring(close) + ",S", alert.freq_once_per_bar_close)
     
 // Candles #########################################################################################################
 
@@ -374,6 +374,8 @@ plotshape(series=sellCondition and not bearMarket, title="Sell Signal", location
 
 plotshape(series=hasGap, title="Gap of 8.5% or more", location=location.belowbar, color=color.teal, style=shape.diamond, offset=0)
 plotshape(series=hasGap and GapGreaterThan10, title="Gap of 10% or more", location=location.belowbar, color=#ffd942, style=shape.diamond, offset=0)
+
+plotshape(series=(high <= bbLower), title="Price under 200BB", location=location.belowbar, color=#35624b, style=shape.labelup, offset=0)
 
 if (bearMarket and showElements)
     label.new(x=bar_index, y=high, text='☠️', color=color.rgb(0, 0, 0, 100), textcolor=color.red, style=label.style_label_down, size=size.large)
